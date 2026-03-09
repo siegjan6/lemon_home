@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}{{ house.id }} - Lemon Home{% endblock %}
+{% block content %}
+<section class="detail-hero">
+  <div>
+    <p class="eyebrow">{{ house.id }}</p>
+    <h1>{{ house.address }}</h1>
+    <p class="hero-copy">{{ house.layout or "未填写户型" }} · {{ house.area }} m² · 当前状态 {{ house.status }}</p>
+  </div>
+  <div class="price-strip">
+    <div><span>月租</span><strong>¥{{ "%.2f"|format(house.monthly_rent) }}</strong></div>
+    <div><span>押金</span><strong>¥{{ "%.2f"|format(house.deposit) }}</strong></div>
+  </div>
+</section>
+
+<section class="panel-grid">
+  <article class="panel">
+    <div class="panel-head">
+      <h2>上传房屋素材</h2>
+    </div>
+    <form method="post" action="/houses/{{ house.id }}/media" enctype="multipart/form-data" class="form-stack">
+      <label>
+        <span>类型</span>
+        <select name="media_type">
+          <option value="photo">照片</option>
+          <option value="video">视频</option>
+        </select>
+      </label>
+      <label>
+        <span>文件</span>
+        <input type="file" name="file" required />
+      </label>
+      <button class="button" type="submit">上传</button>
+    </form>
+    <div class="media-grid">
+      {% for photo in media.photos %}
+      <a href="/media/{{ house.id }}/photos/{{ photo }}" target="_blank" class="media-pill">照片 {{ loop.index }}</a>
+      {% endfor %}
+      {% for video in media.videos %}
+      <a href="/media/{{ house.id }}/videos/{{ video }}" target="_blank" class="media-pill video">视频 {{ loop.index }}</a>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <h2>新建租约</h2>
+    </div>
+    <form method="post" action="/houses/{{ house.id }}/leases" class="form-stack">
+      <label>
+        <span>起租日期</span>
+        <input name="start_date" type="date" value="{{ today }}" required />
+      </label>
+      <div class="field-row">
+        <label>
+          <span>出账日</span>
+          <input name="billing_day" type="number" min="1" max="28" value="1" required />
+        </label>
+        <label>
+          <span>自定义账期起始日</span>
+          <input name="custom_cycle_start_day" type="number" min="1" max="28" />
+        </label>
+      </div>
+      <label>
+        <span>结束日期</span>
+        <input name="end_date" type="date" />
+      </label>
+      <button class="button" type="submit">创建租约</button>
+    </form>
+  </article>
+</section>
+
+{% for lease in leases %}
+<section class="lease-block">
+  <div class="section-head inline">
+    <div>
+      <h2>租约 {{ lease.id }}</h2>
+      <p>{{ lease.start_date }} 至 {{ lease.end_date or "进行中" }} · {{ lease.status }} · 主租客 {{ lease.primary_tenant_id or "未设置" }}</p>
+    </div>
+    {% if lease.status == "active" %}
+    <form method="post" action="/houses/{{ house.id }}/leases/{{ lease.id }}/checkout" class="inline-form">
+      <input name="end_date" type="date" value="{{ today }}" required />
+      <button class="button subtle" type="submit">办理退租</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="panel-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <h3>租客</h3>
+      </div>
+      <div class="tenant-list">
+        {% for tenant in lease.tenants %}
+        <div class="tenant-card">
+          <strong>{{ tenant.name }}{% if tenant.is_primary %} · 主租客{% endif %}</strong>
+          <span>{{ tenant.phone }}</span>
+          <span>{{ tenant.id_number }}</span>
+        </div>
+        {% else %}
+        <p class="muted">还没有租客</p>
+        {% endfor %}
+      </div>
+      <form method="post" action="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants" enctype="multipart/form-data" class="form-stack">
+        <label><span>姓名</span><input name="name" type="text" required /></label>
+        <div class="field-row">
+          <label><span>身份证号</span><input name="id_number" type="text" required /></label>
+          <label><span>手机号</span><input name="phone" type="text" required /></label>
+        </div>
+        <div class="field-row">
+          <label><span>身份证正面</span><input name="id_front" type="file" required /></label>
+          <label><span>身份证反面</span><input name="id_back" type="file" required /></label>
+        </div>
+        <label class="checkbox-row"><input name="primary" type="checkbox" value="true" />设为主租客</label>
+        <button class="button" type="submit">添加租客</button>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h3>账单与收款</h3>
+      </div>
+      <div class="bill-list">
+        {% for bill in lease.bills %}
+        <div class="bill-card">
+          <div class="bill-top">
+            <strong>{{ bill.id }}</strong>
+            <span class="badge">{{ bill.status }}</span>
+          </div>
+          <span>应收 ¥{{ "%.2f"|format(bill.amount_due) }}</span>
+          <span>已收 ¥{{ "%.2f"|format(bill.amount_paid) }}</span>
+          <span>到期 {{ bill.due_date }}</span>
+        </div>
+        {% else %}
+        <p class="muted">还没有账单</p>
+        {% endfor %}
+      </div>
+      <form method="post" action="/houses/{{ house.id }}/leases/{{ lease.id }}/bills" class="form-stack">
+        <div class="field-row">
+          <label><span>月份</span><input name="month" type="month" required /></label>
+          <label><span>到期日</span><input name="due_date" type="date" /></label>
+        </div>
+        <button class="button" type="submit">生成账单</button>
+      </form>
+      <form method="post" action="/houses/{{ house.id }}/leases/{{ lease.id }}/payments" class="form-stack accent">
+        <label>
+          <span>账单</span>
+          <select name="bill_id">
+            {% for bill in lease.bills %}
+            <option value="{{ bill.id }}">{{ bill.id }} · {{ bill.status }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="field-row">
+          <label><span>金额</span><input name="amount" type="number" step="0.01" min="0" required /></label>
+          <label><span>收款日期</span><input name="paid_at" type="date" value="{{ today }}" required /></label>
+        </div>
+        <div class="field-row">
+          <label><span>方式</span><input name="method" type="text" value="bank-transfer" /></label>
+          <label><span>备注</span><input name="note" type="text" /></label>
+        </div>
+        <button class="button primary" type="submit">记录收款</button>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h3>押金</h3>
+      </div>
+      <dl class="deposit-grid">
+        <div><dt>已收押金</dt><dd>¥{{ "%.2f"|format(lease.deposit.amount_received) }}</dd></div>
+        <div><dt>应退押金</dt><dd>¥{{ "%.2f"|format(lease.deposit.amount_refundable) }}</dd></div>
+        <div><dt>已退押金</dt><dd>¥{{ "%.2f"|format(lease.deposit.amount_refunded) }}</dd></div>
+        <div><dt>扣款</dt><dd>¥{{ "%.2f"|format(lease.deposit.deduction_amount) }}</dd></div>
+      </dl>
+      <form method="post" action="/houses/{{ house.id }}/leases/{{ lease.id }}/deposit-refund" class="form-stack">
+        <div class="field-row">
+          <label><span>实退金额</span><input name="amount_refunded" type="number" step="0.01" min="0" required /></label>
+          <label><span>扣款金额</span><input name="deduction_amount" type="number" step="0.01" min="0" value="0" /></label>
+        </div>
+        <label><span>扣款原因</span><input name="deduction_reason" type="text" /></label>
+        <label><span>退款日期</span><input name="refunded_at" type="date" value="{{ today }}" required /></label>
+        <button class="button" type="submit">登记押金退款</button>
+      </form>
+    </article>
+
+    <article class="panel wide">
+      <div class="panel-head">
+        <h3>历史记录</h3>
+      </div>
+      <div class="history-list">
+        {% for event in lease.history %}
+        <div class="history-item">
+          <strong>{{ event.timestamp }}</strong>
+          <span>{{ event.action }}</span>
+        </div>
+        {% endfor %}
+        {% if not lease.history %}
+        <p class="muted">还没有历史记录。</p>
+        {% endif %}
+      </div>
+    </article>
+  </div>
+</section>
+{% else %}
+<section class="empty-state">
+  <p>还没有租约。先在上方创建第一份租约。</p>
+</section>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,50 @@
+<div id="gantt-body">
+  {% if gantt.rows %}
+  <div class="gantt-chart" style="--total-days: {{ gantt.total_days }};">
+    {# Month header #}
+    <div class="gantt-header-row gantt-months">
+      <div class="gantt-label-cell"></div>
+      <div class="gantt-timeline">
+        {% for m in gantt.months %}
+        <span class="gantt-month" style="grid-column: {{ m.col_start }} / {{ m.col_end }};">{{ m.label }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Week tick header #}
+    <div class="gantt-header-row gantt-weeks">
+      <div class="gantt-label-cell"></div>
+      <div class="gantt-timeline">
+        {% for w in gantt.weeks %}
+        <span class="gantt-week-tick" style="grid-column: {{ w.col }};">{{ w.label }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Data rows #}
+    {% for row in gantt.rows %}
+    <div class="gantt-row">
+      <div class="gantt-label-cell" title="{{ row.label }}">{{ row.label }}</div>
+      <div class="gantt-timeline">
+        {# Today line #}
+        {% if gantt.today_col %}
+        <div class="gantt-today" style="grid-column: {{ gantt.today_col }};"></div>
+        {% endif %}
+
+        {% for p in row.periods %}
+        <a class="gantt-bar {{ p.status }}"
+           href="/houses/{{ p.house_id }}/leases/{{ p.lease_id }}"
+           style="grid-column: {{ p.col_start }} / {{ p.col_end }};"
+           data-tooltip="第{{ p.num }}期 | {{ p.start }} ~ {{ p.end }} | ¥{{ '%.2f'|format(p.amount) }} | {{ p.status }}">
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>当前筛选条件下没有收租记录。</p>
+  </div>
+  {% endif %}
+</div>

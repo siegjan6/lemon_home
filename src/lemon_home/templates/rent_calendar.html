@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}收租总览 - Lemon Home{% endblock %}
+{% block content %}
+
+{# Summary cards #}
+<section class="stat-grid cols-3">
+  <article class="stat-card" style="border-left: 4px solid #b33a1f;">
+    <span>逾期</span>
+    <strong style="color: #b33a1f;">{{ gantt.stats.overdue_count }} 笔 ¥{{ "%.2f"|format(gantt.stats.overdue_amount) }}</strong>
+  </article>
+  <article class="stat-card" style="border-left: 4px solid var(--accent);">
+    <span>3 天内待收</span>
+    <strong style="color: var(--accent);">{{ gantt.stats.upcoming_count }} 笔 ¥{{ "%.2f"|format(gantt.stats.upcoming_amount) }}</strong>
+  </article>
+  <article class="stat-card" style="border-left: 4px solid #1a5928;">
+    <span>本月已收</span>
+    <strong style="color: #1a5928;">¥{{ "%.2f"|format(gantt.stats.paid_amount) }}</strong>
+  </article>
+</section>
+
+{# Filter bar + time navigation #}
+<section class="filter-bar" style="justify-content: space-between;">
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a class="filter-chip {% if status_filter == 'all' %}active{% endif %}"
+       href="/rent-calendar?status=all&offset={{ offset }}"
+       hx-get="/rent-calendar?status=all&offset={{ offset }}" hx-target="#gantt-body" hx-swap="outerHTML">全部</a>
+    <a class="filter-chip {% if status_filter == 'urgent' %}active{% endif %}"
+       href="/rent-calendar?status=urgent&offset={{ offset }}"
+       hx-get="/rent-calendar?status=urgent&offset={{ offset }}" hx-target="#gantt-body" hx-swap="outerHTML">逾期+待收</a>
+    <a class="filter-chip {% if status_filter == 'overdue' %}active{% endif %}"
+       href="/rent-calendar?status=overdue&offset={{ offset }}"
+       hx-get="/rent-calendar?status=overdue&offset={{ offset }}" hx-target="#gantt-body" hx-swap="outerHTML">仅逾期</a>
+  </div>
+  <div style="display: flex; gap: 0.5rem;">
+    <a class="button button-sm" href="/rent-calendar?offset={{ offset - 1 }}&status={{ status_filter }}">← 上月</a>
+    <a class="button button-sm" href="/rent-calendar?offset=0&status={{ status_filter }}">今天</a>
+    <a class="button button-sm" href="/rent-calendar?offset={{ offset + 1 }}&status={{ status_filter }}">下月 →</a>
+  </div>
+</section>
+
+{# Gantt chart #}
+<section style="margin-top: 1.2rem;">
+  {% include "partials/gantt_body.html" %}
+</section>
+
+{% endblock %}

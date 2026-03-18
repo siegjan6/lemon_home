@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}房屋管理 - Lemon Home{% endblock %}
+{% block content %}
+<section class="section-head">
+  <h1>房屋管理</h1>
+  <div class="action-cell">
+    <button class="button button-sm" onclick="document.getElementById('add-house-panel').toggleAttribute('hidden')">新增房屋</button>
+    <a class="button button-sm button-ghost" href="/tags">标签管理</a>
+  </div>
+</section>
+
+<section class="panel" id="add-house-panel" hidden>
+  <div class="panel-head"><h2>新增房屋</h2></div>
+  <form method="post" action="/houses" class="form-stack">
+    <label>
+      <span>地址</span>
+      <input name="address" type="text" required />
+    </label>
+    <label>
+      <span>面积 (m²)</span>
+      <input name="area" type="number" step="0.01" min="0" required />
+    </label>
+    <label>
+      <span>备注</span>
+      <textarea name="notes" rows="2" placeholder="可选"></textarea>
+    </label>
+    <div class="field-row">
+      <button class="button primary" type="submit">创建房屋</button>
+      <button class="button button-ghost" type="button" onclick="document.getElementById('add-house-panel').setAttribute('hidden','')">取消</button>
+    </div>
+  </form>
+</section>
+
+<section class="house-table-wrap">
+  <table class="house-table">
+    <thead>
+      <tr>
+        <th>地址</th>
+        <th>面积</th>
+        <th>标签</th>
+        <th>备注</th>
+        <th>素材</th>
+        <th>启用</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for house in houses %}
+      <tr{% if not house.enabled %} class="row-disabled"{% endif %}>
+        <td>{{ house.address }}</td>
+        <td>{{ house.area }} m²</td>
+        <td>
+          {% if house.tags %}
+          <div class="tag-list-inline">
+            {% for tag in house.tags %}<span class="tag-sm">{{ tag }}</span>{% endfor %}
+          </div>
+          {% else %}-{% endif %}
+        </td>
+        <td class="notes-cell">{{ house.notes or "-" }}</td>
+        <td>
+          {% if house.media.photos or house.media.videos %}
+          <div class="media-thumb-row">
+            {% for photo in house.media.photos[:3] %}
+            <a href="/media/{{ house.id }}/photos/{{ photo }}" class="glightbox" data-gallery="house-{{ house.id }}">
+              <img src="/media/{{ house.id }}/photos/{{ photo }}" alt="照片" class="media-thumb" />
+            </a>
+            {% endfor %}
+            {% for video in house.media.videos[:1] %}
+            <a href="/media/{{ house.id }}/videos/{{ video }}" class="glightbox" data-gallery="house-{{ house.id }}">
+              <video src="/media/{{ house.id }}/videos/{{ video }}" class="media-thumb" preload="metadata"></video>
+            </a>
+            {% endfor %}
+            {% set total = house.media.photos|length + house.media.videos|length %}
+            {% if total > 4 %}
+            <span class="media-more">+{{ total - 4 }}</span>
+            {% endif %}
+          </div>
+          {% else %}
+          <span class="muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="/houses/{{ house.id }}/toggle-enabled" class="inline-action">
+            <label class="toggle">
+              <input type="checkbox" onchange="this.form.submit()" {% if house.enabled %}checked{% endif %} />
+              <span class="toggle-slider"></span>
+            </label>
+          </form>
+        </td>
+        <td class="action-cell">
+          <a class="button button-sm" href="/houses/{{ house.id }}/edit">编辑</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="empty-cell">暂无房屋数据，点击上方「新增房屋」开始。</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+<script>if (typeof GLightbox !== 'undefined') GLightbox({ selector: '.glightbox' });</script>
+{% endblock %}

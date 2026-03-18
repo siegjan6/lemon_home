@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}编辑 {{ house.address }} - Lemon Home{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/houses">← 返回房屋管理</a>
+  <span class="sep">/</span>
+  <span>{{ house.address }}</span>
+</nav>
+
+<section class="section-head">
+  <h1>编辑房屋</h1>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>基本信息</h2></div>
+  <form method="post" action="/houses/{{ house.id }}/edit" class="form-stack" id="house-form">
+    <label>
+      <span>地址</span>
+      <input name="address" type="text" value="{{ house.address }}" required />
+    </label>
+    <label>
+      <span>面积 (m²)</span>
+      <input name="area" type="number" step="0.01" value="{{ house.area }}" required />
+    </label>
+    <label>
+      <span>备注</span>
+      <textarea name="notes" rows="3" placeholder="添加备注信息…">{{ house.notes or "" }}</textarea>
+    </label>
+    <div class="form-actions">
+      <button class="button primary" type="submit" id="save-btn" disabled>保存修改</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>标签</h2></div>
+  <div id="tag-section">
+    {% include "partials/tag_editor.html" %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>房屋素材</h2></div>
+  <form hx-post="/houses/{{ house.id }}/media" hx-target="#media-grid" hx-swap="innerHTML" hx-encoding="multipart/form-data" class="media-upload-form">
+    <label class="file-pick">
+      <span>选择照片或视频</span>
+      <input type="file" name="file" accept="image/*,video/*" required />
+    </label>
+    <button class="button" type="submit">
+      上传
+      <span class="htmx-indicator">...</span>
+    </button>
+  </form>
+  <div id="media-grid">
+    {% include "partials/media_list.html" %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>危险操作</h2></div>
+  <form method="post" action="/houses/{{ house.id }}/delete" onsubmit="return confirm('确定要删除「{{ house.address }}」吗？此操作不可撤销。')">
+    <button class="button button-ghost" type="submit" style="color:var(--accent)">删除房屋</button>
+  </form>
+</section>
+
+<script>
+(function() {
+  var form = document.getElementById('house-form');
+  var btn = document.getElementById('save-btn');
+  var inputs = form.querySelectorAll('input, textarea');
+  var original = {};
+  inputs.forEach(function(el) { original[el.name] = el.value; });
+
+  function check() {
+    var changed = false;
+    inputs.forEach(function(el) {
+      if (el.value !== original[el.name]) changed = true;
+    });
+    btn.disabled = !changed;
+  }
+
+  inputs.forEach(function(el) {
+    el.addEventListener('input', check);
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% if house.tags %}
+<div class="tag-list">
+  {% for tag in house.tags %}
+  <span class="tag">
+    {{ tag }}
+    <button class="tag-remove" hx-post="/houses/{{ house.id }}/tags/delete" hx-target="#tag-section" hx-swap="innerHTML" hx-vals='{"tag":"{{ tag }}"}'>&times;</button>
+  </span>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">还没有标签</p>
+{% endif %}

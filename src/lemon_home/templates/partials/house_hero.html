@@ -1,0 +1,10 @@
+<section class="detail-hero" id="house-hero">
+  <div>
+    <p class="eyebrow">当前状态 <span class="badge status-{{ house.status }}">{{ house.status|status_cn }}</span></p>
+    <h1>{{ house.address }}</h1>
+    <p class="hero-copy">{{ house.layout or "未填写户型" }} · {{ house.area }} m²</p>
+  </div>
+  <div class="price-strip">
+    <div><button class="button button-sm" onclick="document.getElementById('house-edit-panel').toggleAttribute('hidden')">编辑</button></div>
+  </div>
+</section>

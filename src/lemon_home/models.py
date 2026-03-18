@@ -15,11 +15,11 @@ class House:
     id: str
     address: str
     area: float
-    monthly_rent: float
-    deposit: float
     layout: str | None = None
+    notes: str = ""
+    tags: list[str] = field(default_factory=list)
+    enabled: bool = True
     status: str = "vacant"
-    archived: bool = False
     created_at: str = field(default_factory=utc_now)
     updated_at: str = field(default_factory=utc_now)
 
@@ -33,8 +33,8 @@ class Lease:
     house_id: str
     start_date: str
     end_date: str | None = None
-    billing_day: int = 1
-    custom_cycle_start_day: int | None = None
+    payment_cycle: int = 1
+    note: str = ""
     status: str = "active"
     primary_tenant_id: str | None = None
     monthly_rent: float = 0.0
@@ -133,11 +133,6 @@ class DepositRecord:
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
-
-
-def infer_due_date(month: str, billing_day: int) -> str:
-    year, month_value = month.split("-")
-    return date(int(year), int(month_value), billing_day).isoformat()
 
 
 def file_name(path: str | Path | None) -> str | None:

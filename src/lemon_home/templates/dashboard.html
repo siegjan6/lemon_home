@@ -1,15 +1,6 @@
 {% extends "base.html" %}
 {% block title %}总览 - Lemon Home{% endblock %}
 {% block content %}
-<section class="hero">
-  <div>
-    <p class="eyebrow">Apartment Control Center</p>
-    <h1>用一套本地文件，同时服务 CLI、Agent 和手机网页。</h1>
-    <p class="hero-copy">房屋、租约、租客、账单、收款和押金都落到同一份数据目录。你可以继续用 CLI，也可以直接用浏览器录入。</p>
-  </div>
-  <a class="button primary" href="/houses/new">新增房屋</a>
-</section>
-
 <section class="stat-grid">
   <article class="stat-card">
     <span>房屋总数</span>
@@ -19,49 +10,25 @@
     <span>在租房屋</span>
     <strong>{{ stats.active_count }}</strong>
   </article>
-  <article class="stat-card">
-    <span>未结账单</span>
-    <strong>{{ stats.due_count }}</strong>
-  </article>
-  <article class="stat-card warning">
-    <span>待收金额</span>
-    <strong>¥{{ "%.2f"|format(stats.outstanding_total) }}</strong>
-  </article>
 </section>
 
 <section class="section-head">
   <h2>房屋列表</h2>
 </section>
 
-<section class="filter-bar">
-  <a class="filter-chip {% if filters.status == 'all' %}active{% endif %}" href="/?status=all&debt={{ filters.debt }}">全部状态</a>
-  <a class="filter-chip {% if filters.status == 'vacant' %}active{% endif %}" href="/?status=vacant&debt={{ filters.debt }}">空置</a>
-  <a class="filter-chip {% if filters.status == 'occupied' %}active{% endif %}" href="/?status=occupied&debt={{ filters.debt }}">在租</a>
-  <a class="filter-chip {% if filters.status == 'archived' %}active{% endif %}" href="/?status=archived&debt={{ filters.debt }}">已归档</a>
-  <a class="filter-chip {% if filters.debt == 'due' %}active{% endif %}" href="/?status={{ filters.status }}&debt=due">只看欠费</a>
-  <a class="filter-chip {% if filters.debt == 'all' %}active{% endif %}" href="/?status={{ filters.status }}&debt=all">全部账务</a>
-</section>
-
 <section class="card-grid">
   {% for house in houses %}
-  <a class="house-card" href="/houses/{{ house.id }}">
+  <a class="house-card" href="/houses/{{ house.id }}/edit">
     <div class="house-card-top">
-      <span class="badge">{{ house.status }}</span>
-      <span class="id-tag">{{ house.id }}</span>
+      <span class="badge status-{{ house.status }}">{{ house.status|status_cn }}</span>
+      <span class="id-tag">{{ house.layout or "%.0f m²"|format(house.area) }}</span>
     </div>
     <h3>{{ house.address }}</h3>
-    <p>{{ house.layout or "未填写户型" }}</p>
-    <dl>
-      <div><dt>面积</dt><dd>{{ house.area }} m²</dd></div>
-      <div><dt>月租</dt><dd>¥{{ "%.2f"|format(house.monthly_rent) }}</dd></div>
-      <div><dt>押金</dt><dd>¥{{ "%.2f"|format(house.deposit) }}</dd></div>
-      <div><dt>未结账单</dt><dd>{{ house.due_count }}</dd></div>
-      <div><dt>待收金额</dt><dd>¥{{ "%.2f"|format(house.outstanding_total) }}</dd></div>
-    </dl>
+    <p>{{ house.area }} m²</p>
   </a>
   {% else %}
   <div class="empty-state">
-    <p>还没有房屋数据。先新增第一套房，后面再录租约和账单。</p>
+    <p>还没有房屋数据。先新增第一套房，后面再录合同。</p>
   </div>
   {% endfor %}
 </section>

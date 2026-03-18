@@ -1,0 +1,33 @@
+{% if house.tags %}
+<div class="tag-list">
+  {% for tag in house.tags %}
+  <span class="tag">
+    {{ tag }}
+    <button class="tag-remove" hx-post="/houses/{{ house.id }}/tags/delete" hx-target="#tag-section" hx-swap="innerHTML" hx-vals='{"tag":"{{ tag }}"}'>&times;</button>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if all_tags %}
+{% set unused = [] %}
+{% for t in all_tags %}
+  {% if t not in house.tags %}
+    {% if unused.append(t) %}{% endif %}
+  {% endif %}
+{% endfor %}
+{% if unused %}
+<div class="tag-suggestions">
+  <span class="muted" style="font-size:0.85rem">可选标签：</span>
+  {% for t in unused %}
+  <button type="button" class="tag-chip" hx-post="/houses/{{ house.id }}/tags" hx-target="#tag-section" hx-swap="innerHTML" hx-vals='{"tag":"{{ t }}"}'>{{ t }}</button>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if not house.tags and not all_tags %}
+<p class="muted">还没有标签，请先在 <a href="/tags">标签管理</a> 中创建。</p>
+{% elif not house.tags and all_tags and not unused %}
+<p class="muted">所有标签已选择。</p>
+{% endif %}

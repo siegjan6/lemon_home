@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from contextlib import contextmanager
-import fcntl
+import os
 from pathlib import Path
 from typing import Any
 
@@ -38,13 +38,18 @@ class LemonStore:
     @contextmanager
     def _locked_counter(self, counter_path: Path):
         counter_path.parent.mkdir(parents=True, exist_ok=True)
-        with counter_path.open("a+", encoding="utf-8") as handle:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-            handle.seek(0)
-            try:
+        lock_path = counter_path.with_suffix(".lock")
+        fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        try:
+            with counter_path.open("a+", encoding="utf-8") as handle:
+                handle.seek(0)
                 yield handle
-            finally:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+            try:
+                lock_path.unlink()
+            except OSError:
+                pass
 
     def _scan_max_numeric_suffix(self, prefix: str, parent: Path) -> int:
         max_value = 0
@@ -84,8 +89,6 @@ class LemonStore:
         self,
         address: str,
         area: float,
-        monthly_rent: float,
-        deposit: float,
         layout: str | None,
     ) -> House:
         house_id = self.next_id("H", self.houses_dir)
@@ -93,8 +96,6 @@ class LemonStore:
             id=house_id,
             address=address,
             area=area,
-            monthly_rent=monthly_rent,
-            deposit=deposit,
             layout=layout,
         )
         house_root = self.house_dir(house_id)
@@ -105,29 +106,96 @@ class LemonStore:
         self.append_history(house_root / "history.jsonl", "house_created", house.to_dict())
         return house
 
+    @staticmethod
+    def _parse_house(payload: dict[str, Any]) -> House:
+        payload.pop("archived", None)
+        return House(**payload)
+
     def list_houses(self) -> list[House]:
         houses: list[House] = []
         for house_dir in sorted(self.houses_dir.glob("H*")):
             payload = self.read_json(house_dir / "house.json")
-            houses.append(House(**payload))
+            houses.append(self._parse_house(payload))
         return houses
 
     def get_house(self, house_id: str) -> House:
-        return House(**self.read_json(self.house_dir(house_id) / "house.json"))
+        return self._parse_house(self.read_json(self.house_dir(house_id) / "house.json"))
 
     def save_house(self, house: House) -> None:
         house.updated_at = utc_now()
         self.write_json(self.house_dir(house.id) / "house.json", house.to_dict())
 
+    @property
+    def _tags_path(self) -> Path:
+        return self.root / "tags.json"
+
+    def _read_global_tags(self) -> list[str]:
+        if self._tags_path.exists():
+            return json.loads(self._tags_path.read_text(encoding="utf-8"))
+        return []
+
+    def _write_global_tags(self, tags: list[str]) -> None:
+        self._tags_path.write_text(json.dumps(sorted(set(tags)), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    def all_tags(self) -> list[str]:
+        return sorted(self._read_global_tags())
+
+    def create_tag(self, name: str) -> None:
+        tags = self._read_global_tags()
+        if name not in tags:
+            tags.append(name)
+            self._write_global_tags(tags)
+
+    def rename_tag(self, old: str, new: str) -> int:
+        tags = self._read_global_tags()
+        if old in tags:
+            tags = [new if t == old else t for t in tags]
+            self._write_global_tags(tags)
+        count = 0
+        for house in self.list_houses():
+            if old in house.tags:
+                house.tags = [new if t == old else t for t in house.tags]
+                self.save_house(house)
+                count += 1
+        return count
+
+    def delete_tag(self, tag: str) -> int:
+        tags = self._read_global_tags()
+        if tag in tags:
+            tags.remove(tag)
+            self._write_global_tags(tags)
+        count = 0
+        for house in self.list_houses():
+            if tag in house.tags:
+                house.tags.remove(tag)
+                self.save_house(house)
+                count += 1
+        return count
+
+    def delete_house(self, house_id: str) -> None:
+        self.get_house(house_id)  # ensure exists
+        import shutil
+        shutil.rmtree(self.house_dir(house_id))
+
     def create_lease(
         self,
         house_id: str,
         start_date: str,
-        billing_day: int,
-        custom_cycle_start_day: int | None,
+        monthly_rent: float,
+        deposit_amount: float,
         end_date: str | None,
+        payment_cycle: int = 1,
+        note: str = "",
     ) -> Lease:
         house = self.get_house(house_id)
+        # Check for any existing active lease, not just house.status
+        active_leases = [
+            lease_dir.name
+            for lease_dir in sorted((self.house_dir(house_id) / "leases").glob("L*"))
+            if self.get_lease(house_id, lease_dir.name).status == "active"
+        ]
+        if active_leases:
+            raise StoreError(f"该房屋已有生效合同 {', '.join(active_leases)}，请先退租后再新建")
         lease_parent = self.house_dir(house_id) / "leases"
         lease_id = self.next_id("L", lease_parent)
         lease = Lease(
@@ -135,10 +203,10 @@ class LemonStore:
             house_id=house_id,
             start_date=start_date,
             end_date=end_date,
-            billing_day=billing_day,
-            custom_cycle_start_day=custom_cycle_start_day,
-            monthly_rent=house.monthly_rent,
-            deposit_amount=house.deposit,
+            payment_cycle=payment_cycle,
+            note=note,
+            monthly_rent=monthly_rent,
+            deposit_amount=deposit_amount,
         )
         lease_root = self.lease_dir(house_id, lease_id)
         (lease_root / "tenants").mkdir(parents=True, exist_ok=True)
@@ -148,8 +216,8 @@ class LemonStore:
         deposit = DepositRecord(
             lease_id=lease_id,
             house_id=house_id,
-            amount_received=house.deposit,
-            amount_refundable=house.deposit,
+            amount_received=deposit_amount,
+            amount_refundable=deposit_amount,
         )
         self.write_json(lease_root / "deposit.json", deposit.to_dict())
         self.append_history(lease_root / "history.jsonl", "lease_created", lease.to_dict())
@@ -183,6 +251,14 @@ class LemonStore:
         self.append_history(house_root / "history.jsonl", "house_media_added", {"file": file_name, "type": media_type})
         return file_name
 
+    def delete_house_media(self, house_id: str, kind: str, filename: str) -> None:
+        if kind not in {"photos", "videos"}:
+            raise StoreError("kind must be photos or videos")
+        path = self.house_dir(house_id) / "media" / kind / filename
+        if not path.exists():
+            raise StoreError(f"文件不存在: {filename}")
+        path.unlink()
+
     def add_tenant(
         self,
         house_id: str,
@@ -191,15 +267,15 @@ class LemonStore:
         id_number: str,
         phone: str,
         is_primary: bool,
-        id_front: Path,
-        id_back: Path,
+        id_front: Path | None = None,
+        id_back: Path | None = None,
     ) -> Tenant:
         lease = self.get_lease(house_id, lease_id)
         tenant_parent = self.lease_dir(house_id, lease_id) / "tenants"
         tenant_id = self.next_id("T", tenant_parent)
         tenant_dir = tenant_parent / tenant_id
-        front_name = self.copy_media(id_front, tenant_dir, "id_front")
-        back_name = self.copy_media(id_back, tenant_dir, "id_back")
+        front_name = self.copy_media(id_front, tenant_dir, "id_front") if id_front else None
+        back_name = self.copy_media(id_back, tenant_dir, "id_back") if id_back else None
         tenant = Tenant(
             id=tenant_id,
             name=name,
@@ -216,6 +292,58 @@ class LemonStore:
         self.append_history(self.lease_dir(house_id, lease_id) / "history.jsonl", "tenant_added", tenant.to_dict())
         return tenant
 
+    def get_tenant(self, house_id: str, lease_id: str, tenant_id: str) -> Tenant:
+        tenant_dir = self.lease_dir(house_id, lease_id) / "tenants" / tenant_id
+        return Tenant(**self.read_json(tenant_dir / "tenant.json"))
+
+    def update_tenant(
+        self,
+        house_id: str,
+        lease_id: str,
+        tenant_id: str,
+        name: str,
+        id_number: str,
+        phone: str,
+        is_primary: bool,
+        id_front: Path | None = None,
+        id_back: Path | None = None,
+    ) -> Tenant:
+        tenant_dir = self.lease_dir(house_id, lease_id) / "tenants" / tenant_id
+        tenant = Tenant(**self.read_json(tenant_dir / "tenant.json"))
+        tenant.name = name
+        tenant.id_number = id_number
+        tenant.phone = phone
+        tenant.is_primary = is_primary
+        if id_front:
+            # Remove old front file
+            if tenant.id_front_file:
+                old = tenant_dir / tenant.id_front_file
+                old.unlink(missing_ok=True)
+            tenant.id_front_file = self.copy_media(id_front, tenant_dir, "id_front")
+        if id_back:
+            if tenant.id_back_file:
+                old = tenant_dir / tenant.id_back_file
+                old.unlink(missing_ok=True)
+            tenant.id_back_file = self.copy_media(id_back, tenant_dir, "id_back")
+        tenant.updated_at = utc_now()
+        self.write_json(tenant_dir / "tenant.json", tenant.to_dict())
+        if is_primary:
+            lease = self.get_lease(house_id, lease_id)
+            lease.primary_tenant_id = tenant_id
+            self.save_lease(lease)
+        self.append_history(self.lease_dir(house_id, lease_id) / "history.jsonl", "tenant_updated", tenant.to_dict())
+        return tenant
+
+    def delete_tenant(self, house_id: str, lease_id: str, tenant_id: str) -> None:
+        tenant_dir = self.lease_dir(house_id, lease_id) / "tenants" / tenant_id
+        tenant = Tenant(**self.read_json(tenant_dir / "tenant.json"))
+        shutil.rmtree(tenant_dir)
+        lease = self.get_lease(house_id, lease_id)
+        if lease.primary_tenant_id == tenant_id:
+            lease.primary_tenant_id = None
+            self.save_lease(lease)
+        self.append_history(self.lease_dir(house_id, lease_id) / "history.jsonl", "tenant_deleted", tenant.to_dict())
+
     def list_tenants(self, house_id: str, lease_id: str) -> list[Tenant]:
         tenant_parent = self.lease_dir(house_id, lease_id) / "tenants"
         tenants: list[Tenant] = []
@@ -226,14 +354,14 @@ class LemonStore:
     def get_bill_path(self, house_id: str, lease_id: str, bill_id: str) -> Path:
         return self.lease_dir(house_id, lease_id) / "bills" / f"{bill_id}.json"
 
-    def generate_bill(self, house_id: str, lease_id: str, month: str, due_date: str | None) -> Bill:
+    def generate_bill(self, house_id: str, lease_id: str, month: str, due_date: str | None, amount: float | None = None) -> Bill:
         lease = self.get_lease(house_id, lease_id)
         bill = Bill(
             id=month,
             month=month,
             lease_id=lease_id,
             house_id=house_id,
-            amount_due=lease.monthly_rent,
+            amount_due=amount if amount is not None else lease.monthly_rent,
             due_date=due_date,
         )
         bill_path = self.get_bill_path(house_id, lease_id, bill.id)

@@ -1,0 +1,65 @@
+{% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+{% if message %}<div class="notice success">{{ message }}</div>{% endif %}
+<div class="panel-head">
+  <h3>租客 ({{ lease.tenants|length }})</h3>
+</div>
+<div class="tenant-list">
+  {% for tenant in lease.tenants %}
+  <div class="tenant-card" id="tc-{{ tenant.id }}">
+    <div class="tenant-info">
+      <strong>{{ tenant.name }}{% if tenant.is_primary %} · 主租客{% endif %}</strong>
+      <span>{{ tenant.phone }}</span>
+      {% if tenant.id_number %}<span class="muted">{{ tenant.id_number }}</span>{% endif %}
+      {% if tenant.id_front_file or tenant.id_back_file %}
+      <div class="tenant-id-photos">
+        {% if tenant.id_front_file %}
+        <a href="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants/{{ tenant.id }}/id/front" class="glightbox" data-gallery="tenant-{{ tenant.id }}">
+          <img src="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants/{{ tenant.id }}/id/front" alt="身份证正面" class="id-photo-thumb" />
+        </a>
+        {% endif %}
+        {% if tenant.id_back_file %}
+        <a href="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants/{{ tenant.id }}/id/back" class="glightbox" data-gallery="tenant-{{ tenant.id }}">
+          <img src="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants/{{ tenant.id }}/id/back" alt="身份证反面" class="id-photo-thumb" />
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="tenant-actions">
+      <button type="button" class="button button-sm button-ghost" onclick="toggleEdit('{{ tenant.id }}')">编辑</button>
+      <button type="button" class="button button-sm button-ghost" style="color:var(--accent)" hx-post="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants/{{ tenant.id }}/delete" hx-target="#tenant-section" hx-swap="innerHTML" hx-confirm="确定删除租客 {{ tenant.name }} 吗？">删除</button>
+    </div>
+    <form hx-post="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants/{{ tenant.id }}/edit" hx-target="#tenant-section" hx-swap="innerHTML" hx-encoding="multipart/form-data" class="form-stack tenant-edit-form" id="edit-{{ tenant.id }}" style="display:none">
+      <label><span>姓名</span><input name="name" type="text" value="{{ tenant.name }}" required /></label>
+      <div class="field-row">
+        <label><span>身份证号</span><input name="id_number" type="text" value="{{ tenant.id_number }}" /></label>
+        <label><span>手机号</span><input name="phone" type="text" value="{{ tenant.phone }}" required /></label>
+      </div>
+      <div class="field-row">
+        <label>
+          <span>身份证正面{% if tenant.id_front_file %} <small class="muted">已上传，重新选择可替换</small>{% endif %}</span>
+          <input name="id_front" type="file" />
+        </label>
+        <label>
+          <span>身份证反面{% if tenant.id_back_file %} <small class="muted">已上传，重新选择可替换</small>{% endif %}</span>
+          <input name="id_back" type="file" />
+        </label>
+      </div>
+      <label class="checkbox-row"><input name="primary" type="checkbox" value="true" {% if tenant.is_primary %}checked{% endif %} />设为主租客</label>
+      <div class="field-row">
+        <button class="button button-sm" type="submit">保存</button>
+        <button class="button button-sm button-ghost" type="button" onclick="toggleEdit('{{ tenant.id }}')">取消</button>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <p class="muted">暂无租客信息。</p>
+  {% endfor %}
+</div>
+<script>
+function toggleEdit(tid) {
+  var form = document.getElementById('edit-' + tid);
+  if (form) form.style.display = form.style.display === 'none' ? 'grid' : 'none';
+}
+if (typeof GLightbox !== 'undefined') GLightbox({ selector: '.glightbox' });
+</script>

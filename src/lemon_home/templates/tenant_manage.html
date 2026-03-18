@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}租客管理 - {{ house.address }} - Lemon Home{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/contracts">合同管理</a>
+  <span class="sep">/</span>
+  <span>{{ house.address }}</span>
+  <span class="sep">/</span>
+  <a href="/houses/{{ house.id }}/leases/{{ lease.id }}">合同详情</a>
+  <span class="sep">/</span>
+  <span>租客管理</span>
+</nav>
+
+<section class="section-head">
+  <h1>租客管理</h1>
+  <button class="button button-sm" type="button" onclick="document.getElementById('add-tenant-form').toggleAttribute('hidden')">添加租客</button>
+</section>
+
+<section class="panel" id="add-tenant-form" hidden>
+  <div class="panel-head"><h2>添加租客</h2></div>
+  <form hx-post="/houses/{{ house.id }}/leases/{{ lease.id }}/tenants" hx-target="#tenant-section" hx-swap="innerHTML" hx-encoding="multipart/form-data" class="form-stack">
+    <label><span>姓名</span><input name="name" type="text" required /></label>
+    <div class="field-row">
+      <label><span>身份证号 <small class="muted">可后补</small></span><input name="id_number" type="text" /></label>
+      <label><span>手机号</span><input name="phone" type="text" required /></label>
+    </div>
+    <div class="field-row">
+      <label><span>身份证正面 <small class="muted">可后补</small></span><input name="id_front" type="file" /></label>
+      <label><span>身份证反面 <small class="muted">可后补</small></span><input name="id_back" type="file" /></label>
+    </div>
+    <label class="checkbox-row"><input name="primary" type="checkbox" value="true" />设为主租客</label>
+    <div class="field-row">
+      <button class="button primary" type="submit">
+        添加
+        <span class="htmx-indicator">...</span>
+      </button>
+      <button class="button button-ghost" type="button" onclick="document.getElementById('add-tenant-form').setAttribute('hidden','')">取消</button>
+    </div>
+  </form>
+</section>
+
+<article class="panel" id="tenant-section" style="margin-top:1.2rem">
+  {% include "partials/tenant_list.html" %}
+</article>
+{% endblock %}

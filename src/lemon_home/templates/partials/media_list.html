@@ -1,0 +1,28 @@
+{% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+{% if message %}<div class="notice success">{{ message }}</div>{% endif %}
+<div class="media-gallery">
+  {% for photo in media.photos %}
+  <div class="media-item">
+    <a href="/media/{{ house.id }}/photos/{{ photo }}" class="glightbox" data-gallery="house-media">
+      <img src="/media/{{ house.id }}/photos/{{ photo }}" alt="房屋照片" loading="lazy" />
+    </a>
+    <button class="media-delete-btn" hx-post="/houses/{{ house.id }}/media/photos/{{ photo }}/delete" hx-target="#media-grid" hx-swap="innerHTML" hx-confirm="确定删除这张照片吗？">&times;</button>
+  </div>
+  {% endfor %}
+  {% for video in media.videos %}
+  <div class="media-item">
+    <a href="/media/{{ house.id }}/videos/{{ video }}" class="glightbox" data-gallery="house-media">
+      <video src="/media/{{ house.id }}/videos/{{ video }}" preload="metadata"></video>
+    </a>
+    <button class="media-delete-btn" hx-post="/houses/{{ house.id }}/media/videos/{{ video }}/delete" hx-target="#media-grid" hx-swap="innerHTML" hx-confirm="确定删除这个视频吗？">&times;</button>
+  </div>
+  {% endfor %}
+  {% if not media.photos and not media.videos %}
+  <p class="muted">还没有素材</p>
+  {% endif %}
+</div>
+<script>
+if (typeof GLightbox !== 'undefined') {
+  GLightbox({ selector: '.glightbox' });
+}
+</script>

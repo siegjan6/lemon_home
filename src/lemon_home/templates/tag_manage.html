@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}标签管理 - Lemon Home{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/houses">房屋管理</a>
+  <span class="sep">/</span>
+  <span>标签管理</span>
+</nav>
+
+<section class="section-head">
+  <h1>标签管理</h1>
+  <button class="button button-sm" onclick="document.getElementById('add-tag-panel').toggleAttribute('hidden')">新增标签</button>
+</section>
+
+<section class="panel" id="add-tag-panel" hidden>
+  <form method="post" action="/tags/create" class="tag-add-form">
+    <input name="name" type="text" placeholder="输入新标签名…" required />
+    <button class="button button-sm primary" type="submit">创建</button>
+    <button class="button button-sm button-ghost" type="button" onclick="document.getElementById('add-tag-panel').setAttribute('hidden','')">取消</button>
+  </form>
+</section>
+
+{% if tags %}
+<section class="tag-manage-list">
+  {% for tag in tags %}
+  <div class="tag-manage-card" id="tag-card-{{ loop.index }}">
+    <div class="tag-manage-show" id="tag-show-{{ loop.index }}">
+      <span class="tag">{{ tag.name }}</span>
+      <span class="muted">{{ tag.count }} 套房屋</span>
+      <div class="tag-manage-actions">
+        <button class="button button-sm button-ghost" type="button" onclick="startRename({{ loop.index }})">重命名</button>
+        <form method="post" action="/tags/delete" class="inline-action" onsubmit="return confirm('确定删除标签「{{ tag.name }}」吗？将从所有房屋中移除。')">
+          <input type="hidden" name="name" value="{{ tag.name }}" />
+          <button class="button button-sm button-ghost" type="submit" style="color:var(--accent)">删除</button>
+        </form>
+      </div>
+    </div>
+    <form id="tag-rename-{{ loop.index }}" method="post" action="/tags/rename" class="tag-rename-form" style="display:none">
+      <input type="hidden" name="old_name" value="{{ tag.name }}" />
+      <input name="new_name" type="text" value="{{ tag.name }}" required />
+      <button class="button button-sm" type="submit">保存</button>
+      <button class="button button-sm button-ghost" type="button" onclick="cancelRename({{ loop.index }})">取消</button>
+    </form>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="empty-state">
+  <p>还没有任何标签，点击上方「新增标签」创建。</p>
+</div>
+{% endif %}
+
+<script>
+function startRename(i) {
+  document.getElementById('tag-show-' + i).style.display = 'none';
+  document.getElementById('tag-rename-' + i).style.display = 'flex';
+}
+function cancelRename(i) {
+  document.getElementById('tag-show-' + i).style.display = '';
+  document.getElementById('tag-rename-' + i).style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}合同管理 - Lemon Home{% endblock %}
+{% block content %}
+<section class="section-head">
+  <h1>合同管理</h1>
+</section>
+
+<section class="filter-bar">
+  <a class="filter-chip {% if filters.status == 'all' %}active{% endif %}" href="/contracts?status=all">全部</a>
+  <a class="filter-chip {% if filters.status == 'occupied' %}active{% endif %}" href="/contracts?status=occupied">合约中</a>
+  <a class="filter-chip {% if filters.status == 'vacant' %}active{% endif %}" href="/contracts?status=vacant">空置</a>
+</section>
+
+{% if groups %}
+<section class="contract-groups">
+  {% for group in groups %}
+  <div class="contract-group">
+    <div class="contract-group-head">
+      <h2>{{ group.house.address }}</h2>
+      <span class="muted">{{ group.house.area }} m²</span>
+      {% if group.history %}
+      <button class="button button-sm button-ghost toggle-history" onclick="toggleHistory('{{ group.house.id }}')">
+        历史合同 ({{ group.history|length }})
+      </button>
+      {% endif %}
+    </div>
+
+    {% if group.current %}
+    <a class="contract-card current" href="/houses/{{ group.house.id }}/leases/{{ group.current.id }}">
+      <div class="contract-card-top">
+        <span class="badge status-active">当前合同</span>
+        <span class="id-tag">{{ group.current.start_date }} 起</span>
+      </div>
+      <div class="contract-card-body">
+        <div class="contract-info">
+          <span>{{ group.current.start_date }} 至 {{ group.current.end_date or "进行中" }}</span>
+          <span>月租 ¥{{ "%.2f"|format(group.current.monthly_rent) }}</span>
+          <span>{{ (group.current.payment_cycle or 1)|cycle_cn }}</span>
+        </div>
+        <div class="contract-tenant">
+          主租客: {{ group.current.primary_tenant_name or "未设置" }}
+          {% if group.current.tenant_count > 1 %}
+          <span class="muted">等 {{ group.current.tenant_count }} 人</span>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+    {% else %}
+    <a class="button button-sm primary" href="/houses/{{ group.house.id }}/contracts/new">创建合同</a>
+    {% endif %}
+
+    {% if group.history %}
+    <div class="contract-history" id="history-{{ group.house.id }}" hidden>
+      {% for lease in group.history %}
+      <a class="contract-card history" href="/houses/{{ group.house.id }}/leases/{{ lease.id }}">
+        <div class="contract-card-top">
+          <span class="badge status-{{ lease.status }}">{{ lease.status|status_cn }}</span>
+          <span class="id-tag">{{ lease.start_date }} 起</span>
+        </div>
+        <div class="contract-card-body">
+          <div class="contract-info">
+            <span>{{ lease.start_date }} 至 {{ lease.end_date or "-" }}</span>
+            <span>月租 ¥{{ "%.2f"|format(lease.monthly_rent) }}</span>
+          </div>
+          <div class="contract-tenant">
+            主租客: {{ lease.primary_tenant_name or "未设置" }}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="empty-state">
+  <p>还没有房屋数据。先在「房屋管理」中新增房屋，再创建合同。</p>
+</div>
+{% endif %}
+
+<script>
+function toggleHistory(houseId) {
+  var el = document.getElementById('history-' + houseId);
+  if (el) el.toggleAttribute('hidden');
+}
+</script>
+{% endblock %}

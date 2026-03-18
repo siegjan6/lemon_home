@@ -1,0 +1,12 @@
+<a class="house-card lease-summary-card" href="/houses/{{ house.id }}/leases/{{ lease.id }}">
+  <div class="house-card-top">
+    <span class="badge status-{{ lease.status }}">{{ lease.status|status_cn }}</span>
+    <span class="id-tag">{{ lease.start_date }} 起</span>
+  </div>
+  <h3>{{ lease.start_date }} 至 {{ lease.end_date or "进行中" }}</h3>
+  <p>主租客: {{ lease.primary_tenant_name or "未设置" }}</p>
+  <dl>
+    <div><dt>月租</dt><dd>¥{{ "%.2f"|format(lease.monthly_rent) }}</dd></div>
+    <div><dt>付款</dt><dd>{{ (lease.payment_cycle or 1)|cycle_cn }}</dd></div>
+  </dl>
+</a>

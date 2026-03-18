@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}新建合同 - {{ house.address }} - Lemon Home{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/contracts">合同管理</a>
+  <span class="sep">/</span>
+  <span>{{ house.address }}</span>
+  <span class="sep">/</span>
+  <span>新建合同</span>
+</nav>
+
+<section class="section-head">
+  <h1>新建合同</h1>
+</section>
+
+<section class="panel">
+  <form method="post" action="/houses/{{ house.id }}/leases" enctype="multipart/form-data" class="form-stack" id="lease-form">
+    <div class="panel-head"><h3>合同信息</h3></div>
+    <label>
+      <span>起租日期</span>
+      <input name="start_date" id="lf-start" type="date" value="{{ today }}" required />
+    </label>
+    <div>
+      <span class="field-label">租期</span>
+      <div class="chip-group" id="lf-duration-chips">
+        <button type="button" class="filter-chip" data-months="12">1年</button>
+        <button type="button" class="filter-chip active" data-months="6">6个月</button>
+        <button type="button" class="filter-chip" data-months="3">3个月</button>
+        <button type="button" class="filter-chip" data-months="24">2年</button>
+        <button type="button" class="filter-chip" data-months="36">3年</button>
+      </div>
+    </div>
+    <label>
+      <span>结束日期 <small class="muted">默认月末</small></span>
+      <input name="end_date" id="lf-end" type="date" />
+    </label>
+    <div class="field-row">
+      <label>
+        <span>月租金 (¥)</span>
+        <input name="monthly_rent" id="lf-rent" type="number" step="0.01" min="0" required />
+      </label>
+      <label>
+        <span>押金 (¥) <small class="muted">默认一个月租金</small></span>
+        <input name="deposit_amount" id="lf-deposit" type="number" step="0.01" min="0" required />
+      </label>
+    </div>
+    <div>
+      <span class="field-label">付款周期</span>
+      <div class="chip-group" id="lf-cycle-chips">
+        <button type="button" class="filter-chip" data-cycle="1">月付</button>
+        <button type="button" class="filter-chip" data-cycle="2">双月付</button>
+        <button type="button" class="filter-chip active" data-cycle="3">季付</button>
+        <button type="button" class="filter-chip" data-cycle="6">半年付</button>
+        <button type="button" class="filter-chip" data-cycle="12">年付</button>
+      </div>
+      <input type="hidden" name="payment_cycle" id="lf-cycle-val" value="3" />
+    </div>
+    <label>
+      <span>备注</span>
+      <input name="note" type="text" placeholder="" />
+    </label>
+
+    <hr class="divider" />
+    <div class="panel-head"><h3>主租客信息</h3></div>
+    <label><span>姓名</span><input name="tenant_name" type="text" required /></label>
+    <div class="field-row">
+      <label><span>身份证号 <small class="muted">可后补</small></span><input name="tenant_id_number" type="text" /></label>
+      <label><span>手机号</span><input name="tenant_phone" type="text" required /></label>
+    </div>
+    <div class="field-row">
+      <label><span>身份证正面 <small class="muted">可后补</small></span><input name="id_front" type="file" /></label>
+      <label><span>身份证反面 <small class="muted">可后补</small></span><input name="id_back" type="file" /></label>
+    </div>
+
+    <hr class="divider" />
+    <div class="panel-head">
+      <h3>其他租客</h3>
+      <button class="button button-sm" type="button" id="add-tenant-btn">添加租客</button>
+    </div>
+    <div id="extra-tenants"></div>
+
+    <button class="button primary" type="submit">
+      创建合同
+      <span class="htmx-indicator">...</span>
+    </button>
+  </form>
+</section>
+
+<script>
+(function() {
+  var durationChips = document.querySelectorAll('#lf-duration-chips button');
+  var cycleChips = document.querySelectorAll('#lf-cycle-chips button');
+  var startEl = document.getElementById('lf-start');
+  var endEl = document.getElementById('lf-end');
+  var rentEl = document.getElementById('lf-rent');
+  var depositEl = document.getElementById('lf-deposit');
+  var cycleVal = document.getElementById('lf-cycle-val');
+
+  function fmt(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function endOfMonth(y, m) {
+    return new Date(y, m, 0);
+  }
+
+  function calcEnd(startStr, months) {
+    var d = new Date(startStr);
+    var target = new Date(d.getFullYear(), d.getMonth() + months, d.getDate() - 1);
+    return fmt(endOfMonth(target.getFullYear(), target.getMonth() + 1));
+  }
+
+  function chipSelect(group, chip, onChange) {
+    group.forEach(function(c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    if (onChange) onChange();
+  }
+
+  durationChips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      chipSelect(durationChips, chip, function() {
+        if (startEl.value) endEl.value = calcEnd(startEl.value, parseInt(chip.dataset.months));
+      });
+    });
+  });
+
+  cycleChips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      chipSelect(cycleChips, chip, function() {
+        cycleVal.value = chip.dataset.cycle;
+      });
+    });
+  });
+
+  startEl.addEventListener('change', function() {
+    var active = document.querySelector('#lf-duration-chips .active');
+    if (active && startEl.value) endEl.value = calcEnd(startEl.value, parseInt(active.dataset.months));
+  });
+
+  rentEl.addEventListener('input', function() {
+    if (!depositEl.dataset.manual) depositEl.value = rentEl.value;
+  });
+
+  depositEl.addEventListener('input', function() {
+    depositEl.dataset.manual = depositEl.value !== rentEl.value ? '1' : '';
+  });
+
+  // Default: 6 months end date
+  if (startEl.value) {
+    endEl.value = calcEnd(startEl.value, 6);
+  }
+
+  // Extra tenants
+  var tenantIdx = 0;
+  var container = document.getElementById('extra-tenants');
+  document.getElementById('add-tenant-btn').addEventListener('click', function() {
+    var i = tenantIdx++;
+    var div = document.createElement('div');
+    div.className = 'extra-tenant-block';
+    div.id = 'extra-tenant-' + i;
+    div.innerHTML =
+      '<div class="panel-head"><span class="muted">租客 #' + (i + 2) + '</span>' +
+      '<button class="button button-sm button-ghost" type="button" style="color:var(--accent)" onclick="document.getElementById(\'extra-tenant-' + i + '\').remove()">移除</button></div>' +
+      '<label><span>姓名</span><input name="extra_name_' + i + '" type="text" required /></label>' +
+      '<div class="field-row">' +
+      '<label><span>身份证号 <small class="muted">可后补</small></span><input name="extra_id_number_' + i + '" type="text" /></label>' +
+      '<label><span>手机号</span><input name="extra_phone_' + i + '" type="text" required /></label>' +
+      '</div>' +
+      '<div class="field-row">' +
+      '<label><span>身份证正面 <small class="muted">可后补</small></span><input name="extra_id_front_' + i + '" type="file" /></label>' +
+      '<label><span>身份证反面 <small class="muted">可后补</small></span><input name="extra_id_back_' + i + '" type="file" /></label>' +
+      '</div>';
+    container.appendChild(div);
+  });
+})();
+</script>
+{% endblock %}

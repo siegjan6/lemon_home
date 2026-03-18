@@ -8,7 +8,6 @@ from typing import Any
 
 import typer
 
-from .models import infer_due_date
 from .store import LemonStore, StoreError
 
 app = typer.Typer(help="Agent-friendly apartment management CLI")
@@ -83,14 +82,12 @@ def root() -> None:
 def house_add(
     address: str = typer.Option(...),
     area: float = typer.Option(...),
-    monthly_rent: float = typer.Option(...),
-    deposit: float = typer.Option(...),
     layout: str | None = typer.Option(None),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     store = get_store()
     try:
-        house = store.create_house(address, area, monthly_rent, deposit, layout)
+        house = store.create_house(address, area, layout)
     except StoreError as error:
         typer.echo(str(error), err=True)
         fail(error)
@@ -127,8 +124,6 @@ def house_update(
     house_id: str,
     address: str | None = typer.Option(None),
     area: float | None = typer.Option(None),
-    monthly_rent: float | None = typer.Option(None),
-    deposit: float | None = typer.Option(None),
     layout: str | None = typer.Option(None),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -138,10 +133,6 @@ def house_update(
         house.address = address
     if area is not None:
         house.area = area
-    if monthly_rent is not None:
-        house.monthly_rent = monthly_rent
-    if deposit is not None:
-        house.deposit = deposit
     if layout is not None:
         house.layout = layout
     store.save_house(house)
@@ -179,13 +170,14 @@ def house_media_add(
 def lease_create(
     house_id: str = typer.Option(...),
     start_date: str = typer.Option(...),
-    billing_day: int = typer.Option(1),
-    custom_cycle_start_day: int | None = typer.Option(None),
+    monthly_rent: float = typer.Option(...),
+    deposit_amount: float = typer.Option(...),
     end_date: str | None = typer.Option(None),
+    billing_start_date: str | None = typer.Option(None),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     store = get_store()
-    lease = store.create_lease(house_id, start_date, billing_day, custom_cycle_start_day, end_date)
+    lease = store.create_lease(house_id, start_date, monthly_rent, deposit_amount, end_date, billing_start_date=billing_start_date)
     print_output(lease.to_dict(), json_output)
 
 
@@ -246,13 +238,12 @@ def bill_generate(
     house_id: str = typer.Option(...),
     lease_id: str = typer.Option(...),
     month: str = typer.Option(..., help="YYYY-MM"),
+    amount: float | None = typer.Option(None),
     due_date: str | None = typer.Option(None),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     store = get_store()
-    lease = store.get_lease(house_id, lease_id)
-    actual_due_date = due_date or infer_due_date(month, lease.billing_day)
-    bill = store.generate_bill(house_id, lease_id, month, actual_due_date)
+    bill = store.generate_bill(house_id, lease_id, month, due_date, amount=amount)
     print_output(bill.to_dict(), json_output)
 
 

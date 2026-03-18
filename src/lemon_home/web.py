@@ -82,6 +82,8 @@ def request_context(request: Request, **extra: Any) -> dict[str, Any]:
     path = request.url.path
     if path == "/":
         nav_active = "dashboard"
+    elif path.startswith("/rent-calendar"):
+        nav_active = "rent-calendar"
     elif path.startswith("/contracts"):
         nav_active = "contracts"
     elif path == "/houses" or path == "/houses/new":
@@ -409,6 +411,37 @@ def dashboard(request: Request):
                 "active_count": active_count,
             },
         ),
+    )
+
+
+@app.get("/rent-calendar")
+def rent_calendar(request: Request):
+    store = get_store()
+    today_date = date.today()
+    offset = int(request.query_params.get("offset", "0"))
+    status_filter = request.query_params.get("status", "all")
+
+    # Shift window by offset months, but keep real today for status logic
+    window_center = _add_months(today_date, offset)
+    gantt = build_rent_gantt(store, real_today=today_date, window_center=window_center, months_before=2, months_after=2)
+
+    # Apply status filter to rows
+    if status_filter == "urgent":
+        gantt["rows"] = [r for r in gantt["rows"] if r["worst_status"] in ("overdue", "partial", "upcoming")]
+    elif status_filter == "overdue":
+        gantt["rows"] = [r for r in gantt["rows"] if r["worst_status"] in ("overdue", "partial")]
+
+    if is_htmx(request):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/gantt_body.html",
+            context={"request": request, "gantt": gantt, "today": today_date.isoformat(), "offset": offset, "status_filter": status_filter},
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="rent_calendar.html",
+        context=request_context(request, gantt=gantt, offset=offset, status_filter=status_filter),
     )
 
 
